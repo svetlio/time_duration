@@ -1,0 +1,26 @@
+<?php
+/**
+ * @file
+ * Install, update, and uninstall functions for the field_example module.
+ */
+
+/**
+ * Implements hook_field_schema().
+ *
+ * Defines the database schema of the field, using the format used by the
+ * Schema API.
+ *
+ * field contain 2 digit per item of 5 - years, month, days, hours, minutes
+ */
+function time_duration_field_schema($field) {
+  $columns = array(
+    'time_duration' => array('type' => 'varchar', 'length' => 10, 'not null' => FALSE),
+  );
+  $indexes = array(
+    'time_duration' => array('time_duration'),
+  );
+  return array(
+    'columns' => $columns,
+    'indexes' => $indexes,
+  );
+}

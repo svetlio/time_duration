@@ -1,0 +1,227 @@
+<?php
+
+/**
+ * Implements hook_field_info().
+ */
+function time_duration_field_info() {
+  return array(
+    'time_duration' => array(
+      'label' => t('Time duration'),
+      'description' => t('This field stores number integer in the database.'),
+      'settings' => array('max_length' => 20),
+      'instance_settings' => array('text_processing' => 0),
+      'default_widget' => 'time_duration',
+      'default_formatter' => 'time_duration_full',
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function time_duration_field_widget_info() {
+  return array(
+    'time_duration' => array(
+      'label' => t('Time duration'),
+      'field types' => array('time_duration'),
+      'settings' => array('size' => 60),
+      'behaviors' => array(
+        'multiple values' => FIELD_BEHAVIOR_DEFAULT,
+        'default value' => FIELD_BEHAVIOR_DEFAULT,
+      ),
+    ),
+  );
+}
+
+function time_duration_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  $form['#attached']['css'] = array(drupal_get_path('module', 'time_duration') . '/time_duration.css');
+  
+  $value = isset($items[$delta]['time_duration']) ? $items[$delta]['time_duration'] : '';
+  
+  $widget = $element;
+  $widget['#delta'] = $delta;
+  
+  $widget += array(
+    '#type' => 'fieldset',
+    '#delta' => $delta,
+    '#element_validate' => array('field_type_time_duration_validate'),
+  );
+  
+  $n = 0;
+  $keys = array(
+    'y' => t('Years'),
+    'm' => t('Months'),
+    'd' => t('Days'),
+    'h' => t('Hours'),
+    'i' => t('Minutes')
+  );
+  
+  // separate form items default value
+  $default = field_time_duration_default($value);
+  
+  $keys_range = time_durations_range();
+  
+  foreach ($keys as $key => $title) {
+    $widget[$key] = array(
+      '#type' => 'select',
+      '#options' => $keys_range[$key],
+      '#title' => $title,
+      '#weight' => $n,
+      '#default_value' => !empty($default[$key]) ? $default[$key] : 0,
+    );
+    
+    $n++;
+  }
+  
+  $element['time_duration'] = $widget;
+  return $element;
+}
+
+/**
+ * Make form select options range per form item
+ */
+function time_durations_range() {
+  $keys = array();
+  
+  $keys['y'] = array(0,1,2,3,4,5,6,7,8,9);
+  $keys['m'] = array(0,1,2,3,4,5,6,7,8,9,10,11);
+  $keys['d'] = array(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,2,23,23,25,26,27,28,29,30,31);
+  $keys['h'] = array(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,2,23);
+  $keys['i'] = array(0,5=>5,10=>10,15=>15,20=>20,25=>25,30=>30,35=>35,40=>40,45=>45,50=>50,55=>55);
+  
+  return $keys;
+}
+
+/**
+ * Separate default value per form key
+ */
+function field_time_duration_default($value) {
+  $default = array();
+  
+  $words = array('y', 'm', 'd', 'h', 'i');
+  $n = 0;
+  
+  foreach ($words AS $word) {
+    $subval = '';
+    
+    if ($subval = (int) substr($value, $n, 2)) {
+      $default[$word] = $subval;
+    }
+    
+    $n = $n+2;
+  }
+  
+  return $default;
+}
+
+/**
+ * Validate the individual fields and then convert them into a single
+ * value as concatenate each.
+ */
+function field_type_time_duration_validate($element, &$form_state) {
+  $value = '';
+  $empty_value = 0;
+  $delta = $element['#delta'];
+  
+  $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
+  $field_name = $field['field_name'];
+  
+  $td_keys = array('y', 'm', 'd', 'h', 'i');
+  $values = $form_state['values'][$field_name][$element['#language']];
+  
+  foreach ($values AS $val) {
+    foreach ($td_keys AS $td_key) {
+      // check for all vals empty (=0)
+      if ($val['time_duration'][$td_key] == '0') {
+        $empty_value++;
+      }
+    }
+    
+    if ($empty_value != 5) {
+      // add 0 as start for 1 lenght val and cocatenate them
+      foreach ($td_keys AS $td_key) {
+        $value .= strlen($val['time_duration'][$td_key]) == 1 ? '0' . $val['time_duration'][$td_key] : $val['time_duration'][$td_key];
+      }
+    }
+  }
+  
+  form_set_value($element, $value, $form_state);
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function time_duration_field_formatter_info() {
+  return array(
+    'time_duration_full' => array(
+      'label' => t('Duration Full'),
+      'field types' => array('time_duration'),
+    ),
+    'time_duration_hours' => array(
+      'label' => t('Duration in hours'),
+      'field types' => array('time_duration'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function time_duration_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+  
+  switch ($display['type']) {
+    case 'time_duration_full':
+      foreach ($items as $delta => $item) {
+        $element[$delta] = array(
+          '#markup' => field_time_duration_full_output($item['time_duration']),
+        );
+      }
+    break;
+  case 'time_duration_hours':
+      foreach ($items as $delta => $item) {
+        $element[$delta] = array(
+          '#markup' => field_time_duration_hours_output($item['time_duration']),
+        );
+      }
+    break;
+  }
+  
+  return $element;
+}
+
+
+function field_time_duration_full_output($value) {
+  $output = array();
+  
+  $words = array('year', 'month', 'day', 'hour', 'minute');
+  $n = 0;
+  
+  foreach ($words AS $word) {
+    $subval = '';
+    
+    if ($subval = (int) substr($value, $n, 2)) {
+      $output[] = format_plural($subval, '@count %word', '@count %words', array('%word' => $word));
+    }
+    
+    $n = $n+2;
+  }
+  
+  return implode(', ', $output);
+}
+
+// not ready
+function field_time_duration_hours_output($value) {
+  $output = '';
+  
+  $output .= $value;
+  
+  return $output;
+}
+
+/**
+ * Implements hook_field_is_empty().
+ */
+function time_duration_field_is_empty($item, $field) {
+  return empty($item['time_duration']);
+}
